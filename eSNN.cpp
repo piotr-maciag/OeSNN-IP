@@ -15,7 +15,7 @@ double simTr;
 double mod;
 int K;
 
-vector<vector<double>> WW;
+vector<vector<double>> WStream;
 
 int n;
 int m;
@@ -35,7 +35,6 @@ vector<int> IDS;
 vector<vector<GRFstruct>> GRFs; //input GRFs
 vector<vector<inputNeuron>> InputNeurons;
 
-int neuronAge = 0;
 
 bool compFiringTime(const inputNeuron &nI1, const inputNeuron &nI2) { //comparator of firing times
     if (nI1.firingTime != nI2.firingTime) {
@@ -60,55 +59,36 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
 
     for (int k = 0; k < Windows.size(); k++) {
         int ord = 0;
-        if( I_max[k] < Windows[k][Windows[k].size() - 1])
-        {
+        if (I_max[k] < Windows[k][Windows[k].size() - 1]) {
             I_max[k] = Windows[k][Windows[k].size() - 1];
         }
-        if( I_min[k] > Windows[k][Windows[k].size() - 1])
-        {
+        if (I_min[k] > Windows[k][Windows[k].size() - 1]) {
             I_min[k] = Windows[k][Windows[k].size() - 1];
         }
 
         for (int j = 0; j < GRFs[k].size(); j++) {
             //double mu = I_min + ((2.0 * j - 3.0) / 2.0) * ((I_max - I_min) / (double(NIsize) - 2));
-            double mu = I_min[k] + (j ) * (I_max[k] - I_min[k]) / (double(NIsize));
-            double sigma = (((I_max[k] - I_min[k]) / (double(NIsize) - 2)));
+            double mu = I_min[k] + (j) * (I_max[k] - I_min[k]) / (double(NIsize));
 
             GRFs[k][j].mu = mu;
-            // GRFs[k][j].sigma = sigma;
         }
 
 
         for (int u = Windows[k].size() - 1; u >= 0; u--) {
             vector<inputNeuron> sortInputNeurons;
             for (int j = 0; j < GRFs[k].size(); j++) {
-                //if (GRFs[k][j].sigma == 0.0) {
-                //  GRFs[k][j].sigma = 1.0;
-                //}
-                //double exc = (exp(-0.5 * pow(((Windows[k][u] - GRFs[k][j].mu) / GRFs[k][j].sigma), 2)));
+
                 double firingTime = abs(Windows[k][u] - GRFs[k][j].mu); //(1 - exc);
-
-
                 inputNeuron newIN = {j, k, firingTime};
                 sortInputNeurons.push_back(newIN);
             }
 
             sort(sortInputNeurons.begin(), sortInputNeurons.end(), compFiringTime);
 
-            if (k == 0) {
-                //cout << endl << "sorted Firigns " << endl;
-                for (int o = 0; o < sortInputNeurons.size(); o++) {
-                    //  cout << sortInputNeurons[o].id << " " << sortInputNeurons[o].firingTime << " ";
-                }
-                //cout << endl;
-            }
-
             for (int j = 0; j < sortInputNeurons.size(); j++) {
                 InputNeurons[k][sortInputNeurons[j].id].order.push_back(ord);
-                //cout << " || j: " << j  << " id: " << sortInputNeurons[j].id << " ord " << ord;
                 ord++;
             }
-            //cout << endl;
         }
     }
 
@@ -140,47 +120,19 @@ void InitializeNeuron(neuron *n_c, double x_h, int h) { //Initalize new neron n_
 }
 
 void InitializeNetwork(vector<vector<double>> &Windows) {
-
-    for (int h = Wsize; h < Ninit; h++) {
-
+    for (int h = Wsize; h  < Ninit - (H - 1); h++) {
         InitializeInputLayer(Windows);
 
-        for (int k = 0; k < Wsize; k++) {
-            //cout << Windows[0][k] << " ";
-        }
-
-        for (int k = 0; k < n; k++) {
+        for (int k = 0; k < H; k++) {
             neuron *n_c = new neuron;
-            InitializeNeuron(n_c, X[k][h], h);
-            //cout << " Id: " <<  n_c->ID << " - " << " OV: " <<  n_c->outputValue << " - ";
+            InitializeNeuron(n_c, X[0][h + k], h);
             UpdateRepository(n_c, k);
-
-
-
-              double y = PredictValue(k);
-           // cout << " Pred " << y;
         }
 
         for (int k = 0; k < n + m; k++) {
             Windows[k].erase(Windows[k].begin());
             Windows[k].push_back(X[k][h]);
         }
-
-        //InitializeInputLayer(Windows);
-
-        for (int k = 0; k < n; k++) {
-
-           // double y = PredictValue(k);
-            // cout <<  " SP " << y << "OP ";
-
-            //   WW[k].push_back(X[k][h]);
-        }
-        //cout <<  " SP ";
-        for (int j = 0; j < NIsize; j++) {
-            //cout << InputNeurons[0][j].order[0] << ",";
-        }
-
-    //    cout << endl;
     }
 }
 
@@ -274,45 +226,23 @@ double PredictValue(int F_k) {
         }
     }
 
-    //sort(OutputNeurons[F_k].begin(), OutputNeurons[F_k].end(), compPSPVal);
-
-
-
-    /*
-    for (int i = 0; i < K && i < OutputNeurons[F_k].size(); i++) {
-        avgVal += OutputNeurons[F_k][i]->outputValue;
-    }
-    */
     double maxPSP = -1;
     double maxVals;
     int countMax = 0;
-    vector<int> neuronIDS;
 
-    for(int i = 0; i < OutputNeurons[F_k].size(); i++)
-    {
-        if(maxPSP < OutputNeurons[F_k][i]->PSP)
-        {
-            neuronIDS.push_back(i);
-            maxVals =  OutputNeurons[F_k][i]->outputValue;
+    for (int i = 0; i < OutputNeurons[F_k].size(); i++) {
+        if (maxPSP < OutputNeurons[F_k][i]->PSP) {
+            maxVals = OutputNeurons[F_k][i]->outputValue;
             countMax = 1;
             maxPSP = OutputNeurons[F_k][i]->PSP;
 
-        }
-        else if(maxPSP == OutputNeurons[F_k][i]->PSP)
-        {
-            neuronIDS.clear();
-            neuronIDS.push_back(i);
+        } else if (maxPSP == OutputNeurons[F_k][i]->PSP) {
             maxVals += OutputNeurons[F_k][i]->outputValue;
             countMax++;
         }
     }
-    //cout << " ||| ";
-    for(int i = 0; i < neuronIDS.size(); i++)
-    {
-      //  cout << "NID " << OutputNeurons[F_k][neuronIDS[i]]->ID << " val: " << OutputNeurons[F_k][neuronIDS[i]]->outputValue << " ";
-    }
 
-    return (maxVals/ (double) countMax);
+    return (maxVals / (double) countMax);
 }
 
 double CalculateUpperBound() {
@@ -343,7 +273,7 @@ double CalculateUpperBound() {
 
 void PredictOeSNN() { //main eSNN procedure
 
-    for (int k = 0; k < n + m; k++) {
+    for (int k = 0; k < H/*n + m*/; k++) {
         CNOsize.push_back(0);
     }
 
@@ -365,7 +295,7 @@ void PredictOeSNN() { //main eSNN procedure
         InputNeurons.push_back(InputNeuronsVect);
     }
 
-    for (int k = 0; k < n; k++) {
+    for (int k = 0; k < H /*n*/; k++) { //initalize all output repostories for 1...H
         vector<neuron *> vec;
         OutputNeurons.push_back(vec);
     }
@@ -378,18 +308,18 @@ void PredictOeSNN() { //main eSNN procedure
             win.push_back(X[k][h]);
         }
         Windows.push_back(win);
-        WW.push_back(win);
+        WStream.push_back(win);
     }
 
     for (int h = Wsize; h < Ninit; h++) {
         for (int k = 0; k < n + m; k++) {
-            WW[k].push_back(X[k][h]);
+            WStream[k].push_back(X[k][h]);
         }
     }
 
-    for (int k = 0; k < WW.size(); k++) {
-        I_max.push_back(*max_element(WW[k].begin(), WW[k].end()));
-        I_min.push_back(*min_element(WW[k].begin(), WW[k].end()));
+    for (int k = 0; k < WStream.size(); k++) {
+        I_max.push_back(*max_element(WStream[k].begin(), WStream[k].end()));
+        I_min.push_back(*min_element(WStream[k].begin(), WStream[k].end()));
 
         cout << "IMax " << I_max[k] << " " << "Imin " << I_min[k] << endl;
     }
@@ -400,57 +330,61 @@ void PredictOeSNN() { //main eSNN procedure
 
     vector<vector<double>> WP;
 
-    for (int k = 0; k < Windows.size(); k++) {
+    for(int k = 0; k < n +m ;k++)
+    {
         vector<double> vec;
         WP.push_back(vec);
     }
 
-    for (int h = Wsize + Ninit; h < Nsize - H; h++) {
+    for(int k = 0; k < n + m; k++) {
+        for (int u = Ninit - Wsize + 1; u < Ninit; u++) {
+            WP[k].push_back(X[k][u]);
+        }
+    }
+
+    for(int k = 0; k < n + m; k++) {
+        for (int u = Ninit - Wsize - H + 1; u  < Ninit - H; u++) {
+            Windows[k].erase(Windows[k].begin());
+            Windows[k].push_back(X[k][u]);
+        }
+    }
+
+    cout << "Phase 1 complete " << endl;
+
+    for (int h =  Ninit; h < X[0].size() - H; h++) {
 
         if (h % 100 == 0)
             cout << "#";
 
-        InitializeInputLayer(Windows);
-
-        for (int k = 0; k < n; k++) {
-            neuron *n_c = new neuron;
-            InitializeNeuron(n_c, X[k][h], h);
-            UpdateRepository(n_c, k);
-        }
-
-
         for (int k = 0; k < n + m; k++) {
             Windows[k].erase(Windows[k].begin());
-            Windows[k].push_back(X[k][h]);
-            WP[k] = Windows[k];
+            Windows[k].push_back(X[k][Ninit - H]);
+
+            WP[k].erase(WP[k].begin());
+            WP[k].push_back(X[k][h]);
+        }
+
+        InitializeInputLayer(Windows);
+
+        for (int hpred = 0; hpred < H  /*n*/; hpred++) {
+            neuron *n_c = new neuron;
+            InitializeNeuron(n_c, X[0][h - (H - hpred + 1)], h);
+            UpdateRepository(n_c, hpred);
         }
 
         vector<double> y;
         y.push_back(h);
 
-        for (int hpred = 1; hpred <= H; hpred++) {
-            InitializeInputLayer(WP);
+        InitializeInputLayer(WP);
 
-            for (int k = 0; k < n; k++) {
+        for (int hpred = 0; hpred < H; hpred++) {
 
-                double y_h_hpred = PredictValue(k);
-               // WP[k].erase(WP[k].begin());
-                //WP[k].push_back(y_h_hpred);
-
-                if (k == 0) {
-                    y.push_back(y_h_hpred);
-                    //    cout << "h " << h << " " << X[0][h] << " " << X[0][h+1] << " " << y_h_hpred << endl;
-                }
-            }
-
-            for (int k = n; k < n + m; k++) {
-
-                WP[k].erase(WP[k].begin());
-                WP[k].push_back(X[k][h + hpred]);
-            }
-
+            double y_h_hpred = PredictValue(hpred);
+            y.push_back(y_h_hpred);
         }
+
         Y.push_back(y);
+
     }
 }
 
@@ -477,33 +411,7 @@ void SaveResults(string filePath) {
     }
     handler.close();
 }
-/*
-void SaveMetrics(string filePath, double precision, double recall, double fMeasure, double Auc) {
-    fstream handler;
-    handler.open(filePath, iostream::out);
 
-    handler << "eSNN Parameters:" << endl;
-    handler << "NOsize: " << NOsize << " Wsize: " << Wsize << " NIsize: " << NIsize;
-    handler << " Beta: " << Beta << " TS: " << TS << " sim: " << sim << " mod: " << mod << " C: " << C;
-    handler << " ErrorFactor: " << ErrorFactor << " AnomalyFactor: " << AnomalyFactor << endl;
-    handler << "Metrics: " << endl;
-    handler << "Precision " << precision << " Recall " << recall << " fMeasure " << fMeasure << " AUC " << Auc;
-
-
-    handler.close();
-}
-
-void SaveMetricsOverall(string filePath, double precision, double recall, double fMeasure) {
-    fstream handler;
-    handler.open(filePath, iostream::out);
-
-    handler << "Metrics: " << endl;
-    handler << "Precision " << precision << " Recall " << recall << " fMeasure " << fMeasure << endl;
-    handler << endl;
-
-    handler.close();
-}
- */
 ///////////////////////////////////////////////////////
 //Load Data Procedures
 
@@ -573,7 +481,7 @@ void ClearStructures() {
 
     InputNeurons.clear();
     GRFs.clear();
-    WW.clear();
+    WStream.clear();
     I_min.clear();
     I_max.clear();
     IDS.clear();
