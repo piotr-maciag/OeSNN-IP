@@ -15,7 +15,7 @@ double simTr;
 double mod;
 int K;
 
-vector<vector<double>> WStream;
+vector<vector<double>> WW;
 
 int n;
 int m;
@@ -44,11 +44,6 @@ bool compFiringTime(const inputNeuron &nI1, const inputNeuron &nI2) { //comparat
     }
 }
 
-bool compPSPVal(const neuron *nI1, const neuron *nI2) { //comparator of firing times
-    return nI1->PSP > nI2->PSP;
-}
-
-
 void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize input layer of OeSNN
 
     for (int k = 0; k < Windows.size(); k++) {
@@ -67,10 +62,9 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
         }
 
         for (int j = 0; j < GRFs[k].size(); j++) {
-            //double mu = I_min + ((2.0 * j - 3.0) / 2.0) * ((I_max - I_min) / (double(NIsize) - 2));
-            double mu = I_min[k] + (j + 0.5) * (I_max[k] - I_min[k]) / (double(NIsize));
-
+            double mu = I_min[k] + (j) * (I_max[k] - I_min[k]) / (double(NIsize));
             GRFs[k][j].mu = mu;
+
         }
 
 
@@ -79,16 +73,21 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
             for (int j = 0; j < GRFs[k].size(); j++) {
 
                 double firingTime = abs(Windows[k][u] - GRFs[k][j].mu); //(1 - exc);
+
+
                 inputNeuron newIN = {j, k, firingTime};
                 sortInputNeurons.push_back(newIN);
             }
 
             sort(sortInputNeurons.begin(), sortInputNeurons.end(), compFiringTime);
 
+
             for (int j = 0; j < sortInputNeurons.size(); j++) {
                 InputNeurons[k][sortInputNeurons[j].id].order.push_back(ord);
+
                 ord++;
             }
+
         }
     }
 
@@ -120,12 +119,14 @@ void InitializeNeuron(neuron *n_c, double x_h, int h) { //Initalize new neron n_
 }
 
 void InitializeNetwork(vector<vector<double>> &Windows) {
-    for (int h = Wsize; h  < Ninit - (H - 1); h++) {
+
+    for (int h = Wsize; h < Ninit; h++) {
+
         InitializeInputLayer(Windows);
 
-        for (int k = 0; k < H; k++) {
+        for (int k = 0; k < n; k++) {
             neuron *n_c = new neuron;
-            InitializeNeuron(n_c, X[0][h + k], h);
+            InitializeNeuron(n_c, X[k][h], h);
             UpdateRepository(n_c, k);
         }
 
@@ -226,6 +227,7 @@ double PredictValue(int F_k) {
         }
     }
 
+
     double maxPSP = -1;
     double maxVals;
     int countMax = 0;
@@ -235,7 +237,6 @@ double PredictValue(int F_k) {
             maxVals = OutputNeurons[F_k][i]->outputValue;
             countMax = 1;
             maxPSP = OutputNeurons[F_k][i]->PSP;
-
         } else if (maxPSP == OutputNeurons[F_k][i]->PSP) {
             maxVals += OutputNeurons[F_k][i]->outputValue;
             countMax++;
@@ -273,7 +274,7 @@ double CalculateUpperBound() {
 
 void PredictOeSNN() { //main eSNN procedure
 
-    for (int k = 0; k < H/*n + m*/; k++) {
+    for (int k = 0; k < n + m; k++) {
         CNOsize.push_back(0);
     }
 
@@ -295,7 +296,7 @@ void PredictOeSNN() { //main eSNN procedure
         InputNeurons.push_back(InputNeuronsVect);
     }
 
-    for (int k = 0; k < H /*n*/; k++) { //initalize all output repostories for 1...H
+    for (int k = 0; k < n; k++) {
         vector<neuron *> vec;
         OutputNeurons.push_back(vec);
     }
@@ -308,18 +309,18 @@ void PredictOeSNN() { //main eSNN procedure
             win.push_back(X[k][h]);
         }
         Windows.push_back(win);
-        WStream.push_back(win);
+        WW.push_back(win);
     }
 
     for (int h = Wsize; h < Ninit; h++) {
         for (int k = 0; k < n + m; k++) {
-            WStream[k].push_back(X[k][h]);
+            WW[k].push_back(X[k][h]);
         }
     }
 
-    for (int k = 0; k < WStream.size(); k++) {
-        I_max.push_back(*max_element(WStream[k].begin(), WStream[k].end()));
-        I_min.push_back(*min_element(WStream[k].begin(), WStream[k].end()));
+    for (int k = 0; k < WW.size(); k++) {
+        I_max.push_back(*max_element(WW[k].begin(), WW[k].end()));
+        I_min.push_back(*min_element(WW[k].begin(), WW[k].end()));
 
         cout << "IMax " << I_max[k] << " " << "Imin " << I_min[k] << endl;
     }
@@ -330,61 +331,61 @@ void PredictOeSNN() { //main eSNN procedure
 
     vector<vector<double>> WP;
 
-    for(int k = 0; k < n +m ;k++)
-    {
+    for (int k = 0; k < Windows.size(); k++) {
         vector<double> vec;
         WP.push_back(vec);
     }
 
-    for(int k = 0; k < n + m; k++) {
-        for (int u = Ninit - Wsize + 1; u < Ninit; u++) {
-            WP[k].push_back(X[k][u]);
-        }
-    }
+    cout << "Phase 1" << endl;
 
-    for(int k = 0; k < n + m; k++) {
-        for (int u = Ninit - Wsize - H + 1; u  < Ninit - H; u++) {
-            Windows[k].erase(Windows[k].begin());
-            Windows[k].push_back(X[k][u]);
-        }
-    }
-
-    cout << "Phase 1 complete " << endl;
-
-    for (int h =  Ninit; h < X[0].size() - H; h++) {
+    for (int h = Ninit; h < Nsize - H; h++) {
 
         if (h % 100 == 0)
             cout << "#";
 
-        for (int k = 0; k < n + m; k++) {
-            Windows[k].erase(Windows[k].begin());
-            Windows[k].push_back(X[k][Ninit - H]);
-
-            WP[k].erase(WP[k].begin());
-            WP[k].push_back(X[k][h]);
-        }
 
         InitializeInputLayer(Windows);
 
-        for (int hpred = 0; hpred < H  /*n*/; hpred++) {
+
+        for (int k = 0; k < n; k++) {
             neuron *n_c = new neuron;
-            InitializeNeuron(n_c, X[0][h - (H - hpred + 1)], h);
-            UpdateRepository(n_c, hpred);
+            InitializeNeuron(n_c, X[k][h], h);
+            UpdateRepository(n_c, k);
+        }
+
+
+
+        for (int k = 0; k < n + m; k++) {
+            Windows[k].erase(Windows[k].begin());
+            Windows[k].push_back(X[k][h]);
+            WP[k] = Windows[k];
         }
 
         vector<double> y;
         y.push_back(h);
 
-        InitializeInputLayer(WP);
+        for (int hpred = 1; hpred <= H; hpred++) {
+            InitializeInputLayer(WP);
 
-        for (int hpred = 0; hpred < H; hpred++) {
+            for (int k = 0; k < n; k++) {
 
-            double y_h_hpred = PredictValue(hpred);
-            y.push_back(y_h_hpred);
+                double y_h_hpred = PredictValue(k);
+                // WP[k].erase(WP[k].begin());
+                //WP[k].push_back(y_h_hpred);
+
+                if (k == 0) {
+                    y.push_back(y_h_hpred);
+                }
+            }
+
+            for (int k = n; k < n + m; k++) {
+
+                WP[k].erase(WP[k].begin());
+                WP[k].push_back(X[k][h + hpred]);
+            }
+
         }
-
         Y.push_back(y);
-
     }
 }
 
@@ -481,7 +482,7 @@ void ClearStructures() {
 
     InputNeurons.clear();
     GRFs.clear();
-    WStream.clear();
+    WW.clear();
     I_min.clear();
     I_max.clear();
     IDS.clear();
