@@ -15,7 +15,7 @@ double simTr;
 double mod;
 int K;
 
-vector<vector<double>> WW;
+vector<vector<double>> Wstream;
 
 int n;
 int m;
@@ -309,18 +309,18 @@ void PredictOeSNN() { //main eSNN procedure
             win.push_back(X[k][h]);
         }
         Windows.push_back(win);
-        WW.push_back(win);
+        Wstream.push_back(win);
     }
 
     for (int h = Wsize; h < Ninit; h++) {
         for (int k = 0; k < n + m; k++) {
-            WW[k].push_back(X[k][h]);
+            Wstream[k].push_back(X[k][h]);
         }
     }
 
-    for (int k = 0; k < WW.size(); k++) {
-        I_max.push_back(*max_element(WW[k].begin(), WW[k].end()));
-        I_min.push_back(*min_element(WW[k].begin(), WW[k].end()));
+    for (int k = 0; k < Wstream.size(); k++) {
+        I_max.push_back(*max_element(Wstream[k].begin(), Wstream[k].end()));
+        I_min.push_back(*min_element(Wstream[k].begin(), Wstream[k].end()));
 
         cout << "IMax " << I_max[k] << " " << "Imin " << I_min[k] << endl;
     }
@@ -482,7 +482,7 @@ void ClearStructures() {
 
     InputNeurons.clear();
     GRFs.clear();
-    WW.clear();
+    Wstream.clear();
     I_min.clear();
     I_max.clear();
     IDS.clear();
