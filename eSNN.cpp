@@ -68,7 +68,7 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
 
         for (int j = 0; j < GRFs[k].size(); j++) {
             //double mu = I_min + ((2.0 * j - 3.0) / 2.0) * ((I_max - I_min) / (double(NIsize) - 2));
-            double mu = I_min[k] + (j) * (I_max[k] - I_min[k]) / (double(NIsize));
+            double mu = I_min[k] + (j + 0.5) * (I_max[k] - I_min[k]) / (double(NIsize));
 
             GRFs[k][j].mu = mu;
         }
