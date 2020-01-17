@@ -1,6 +1,3 @@
-//
-// Created by Piotr on 14.09.2019.
-//
 
 #include "eSNN.h"
 
