@@ -30,6 +30,7 @@ struct neuron
 struct GRFstruct
 {
     double mu, sigma, exc;
+    int rank;
 }; //struct of GRF
 
 struct inputNeuron
@@ -37,7 +38,7 @@ struct inputNeuron
     int id;
     int FA_k;
     double firingTime;
-    vector<int> order;
+    vector<int> order = *(new vector<int>);
 }; //input neuron structure
 
 extern vector<int> CNOsize;

@@ -33,11 +33,11 @@ int main() {
     ReadDirectory(path, files); //load all datafiles from a directory
 
 
-    double NOsize_b = 100, NOsize_e = 200, NOsize_s = 50; //parameters for grid search (xxx_b - intial, xxx_e - ending, xxx_s - step)
-    double Wsize_b = 1, Wsize_e = 13, Wsize_s = 1;
-    double NIsize_b = 50, NIsize_e = 150, NIsize_s = 50;
-    double sim_b = 0.05, sim_e = 0.25, sim_s = 0.5;
-    double mod_b = 0.65, mod_e = 0.95, mod_s = 0.1;
+    double NOsize_b = 100, NOsize_e = 100, NOsize_s = 50; //parameters for grid search (xxx_b - intial, xxx_e - ending, xxx_s - step)
+    double Wsize_b = 1, Wsize_e = 1, Wsize_s = 1;
+    double NIsize_b = 50, NIsize_e = 50, NIsize_s = 50;
+    double sim_b = 0.05, sim_e = 0.05, sim_s = 0.5;
+    double mod_b = 0.7, mod_e = 0.7, mod_s = 0.1;
 
     Ninit = 200, Nsize = 1096;
 
@@ -55,7 +55,7 @@ int main() {
 
 
                                 Wsize = Wsize_c, NOsize = NOsize_c, NIsize = NIsize_c, simTr = sim_c, mod = mod_c,
-                                n = 1, m = 1, H = 3;
+                                n = 1, m = 1, H = 12;
 
                                 cout << endl << "WSize " << Wsize << " NOsize " << NOsize << " NIsize " << NIsize
                                      << " simTr " << simTr << " mod " << mod

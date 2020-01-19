@@ -1,7 +1,6 @@
 
 #include "eSNN.h"
 
-
 int datasetSize;
 
 vector<int> CNOsize;
@@ -58,13 +57,15 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
             I_min[k] = Windows[k][Windows[k].size() - 1];
         }
 
+        double width = (I_max[k] - I_min[k]) / NIsize;
+
         for (int j = 0; j < GRFs[k].size(); j++) {
-            double mu = I_min[k] + (j) * (I_max[k] - I_min[k]) / (double(NIsize));
+            double mu = I_min[k] + (j + 1 - 0.5) * width;
             GRFs[k][j].mu = mu;
-
+            //  cout << j << " " << mu << ";";
         }
-
-
+        //  cout << endl;
+        /*
         for (int u = Windows[k].size() - 1; u >= 0; u--) {
             vector<inputNeuron> sortInputNeurons;
             for (int j = 0; j < GRFs[k].size(); j++) {
@@ -85,9 +86,54 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
                 ord++;
             }
 
+        }*/
+
+        for (int u = Windows[k].size() - 1; u >= 0; u--) {
+
+            int j = floor((Windows[k][u] - I_min[k]) / width) + 1;
+            int l;
+            if (j - 1 < NIsize - j) { l = j - 1; } else { l = NIsize - j; }
+
+            // cout << j << " " << l << endl;
+            //cout << Windows[k][u] <<  endl;
+
+            GRFs[k][j - 1].rank = 0;
+
+            if (Windows[k][u] < GRFs[k][j].mu) {
+                for (int n = 1; n <= l; n++) {
+                    GRFs[k][j - n - 1].rank = 2 * n - 1;
+                    GRFs[k][j + n - 1].rank = 2 * n;
+                }
+                for (int n = 1; n <= j - 1 - l; n++) //n is k in algorithms
+                {
+                    GRFs[k][j - l - n - 1].rank = 2 * l - 1 + n;
+                }
+                for (int n = 1; n <= NIsize - j; n++) //n is k in algorithms
+                {
+                    GRFs[k][j + l + n - 1].rank = 2 * l + n;
+                }
+            } else {
+                for (int n = 1; n <= l; n++) {
+                    GRFs[k][j - n - 1].rank = 2 * n;
+                    GRFs[k][j + n - 1].rank = 2 * n - 1;
+                }
+                for (int n = 1; n <= j - 1 - l; n++) //n is k in algorithms
+                {
+                    GRFs[k][j - l - n - 1].rank = 2 * l + n;
+                }
+                for (int n = 1; n <= NIsize - j - 1; n++) //n is k in algorithms
+                {
+                    GRFs[k][j + l + n - 1].rank = 2 * l + n - 1;
+                }
+            }
+
+            for (int jj = 0; jj < InputNeurons[k].size(); jj++) {
+                InputNeurons[k][jj].order.push_back(GRFs[k][jj].rank + (Wsize - u - 1) * NIsize);
+
+            }
+            //  cout << endl;
         }
     }
-
 }
 
 void InitializeNeuron(neuron *n_c, double x_h, int h) { //Initalize new neron n_i
@@ -121,9 +167,11 @@ void InitializeNetwork(vector<vector<double>> &Windows) {
 
         InitializeInputLayer(Windows);
 
+
         for (int k = 0; k < n; k++) {
             neuron *n_c = new neuron;
             InitializeNeuron(n_c, X[k][h], h);
+
             UpdateRepository(n_c, k);
         }
 
@@ -343,14 +391,11 @@ void PredictOeSNN() { //main eSNN procedure
 
         InitializeInputLayer(Windows);
 
-
         for (int k = 0; k < n; k++) {
             neuron *n_c = new neuron;
             InitializeNeuron(n_c, X[k][h], h);
             UpdateRepository(n_c, k);
         }
-
-
 
         for (int k = 0; k < n + m; k++) {
             Windows[k].erase(Windows[k].begin());
