@@ -9,11 +9,11 @@ int NOsize;
 int NIsize;
 double simTr;
 double mod;
-int K;
+//int K;
 
 vector<vector<double>> Wstream;
 
-int n;
+int Nn = 2;
 int m;
 double H;
 
@@ -23,13 +23,13 @@ vector<double> I_max;
 int Ninit, Nsize;
 
 
-vector<vector<neuron *>> OutputNeurons; //Pointers to output neurons (output neuron repositories)
+vector<neuron *> OutputNeurons; //Pointers to output neurons (output neuron repositories)
 vector<vector<double >> X; //input data streams
 vector<vector<double >> Y; //predicted values of pollution level
 vector<int> IDS;
 
-vector<vector<GRFstruct>> GRFs; //input GRFs
-vector<vector<inputNeuron>> InputNeurons;
+vector<vector<GRFstruct *>> GRFs; //input GRFs
+vector<vector<inputNeuron *>> InputNeurons;
 
 
 bool compFiringTime(const inputNeuron &nI1, const inputNeuron &nI2) { //comparator of firing times
@@ -40,11 +40,12 @@ bool compFiringTime(const inputNeuron &nI1, const inputNeuron &nI2) { //comparat
     }
 }
 
-void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize input layer of OeSNN
+
+void InitializeInputLayerGRFs(const vector<vector<double>> &Windows) { //intialize input layer of OeSNN
 
     for (int k = 0; k < Windows.size(); k++) {
         for (int j = 0; j < InputNeurons[k].size(); j++) {
-            InputNeurons[k][j].order.clear();
+            InputNeurons[k][j]->order.clear();
         }
     }
 
@@ -57,21 +58,26 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
             I_min[k] = Windows[k][Windows[k].size() - 1];
         }
 
-        double width = (I_max[k] - I_min[k]) / NIsize;
+        // double width = (I_max[k] - I_min[k]) / NIsize;
 
         for (int j = 0; j < GRFs[k].size(); j++) {
-            double mu = I_min[k] + (j + 1 - 0.5) * width;
-            GRFs[k][j].mu = mu;
-            //  cout << j << " " << mu << ";";
+            double mu = I_min[k] + ((2.0 * j - 3.0) / 2.0) * ((I_max[k] - I_min[k]) / (double(NIsize) - 2));
+            double sigma = (1.0 / 1.0) * (((I_max[k] - I_min[k]) / (double(NIsize) - 2)));
+
+            GRFs[k][j]->mu = mu;
+            GRFs[k][j]->sigma = sigma;
         }
-        //  cout << endl;
-        /*
+
+
         for (int u = Windows[k].size() - 1; u >= 0; u--) {
             vector<inputNeuron> sortInputNeurons;
             for (int j = 0; j < GRFs[k].size(); j++) {
 
-                double firingTime = abs(Windows[k][u] - GRFs[k][j].mu); //(1 - exc);
-
+                if (GRFs[k][j]->sigma == 0.0) {
+                    GRFs[k][j]->sigma = 1.0;
+                }
+                double exc = (exp(-0.5 * pow(((Windows[k][u] - GRFs[k][j]->mu) / GRFs[k][j]->sigma), 2)));
+                double firingTime = /*floor*/(1 - exc);
 
                 inputNeuron newIN = {j, k, firingTime};
                 sortInputNeurons.push_back(newIN);
@@ -81,59 +87,104 @@ void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize i
 
 
             for (int j = 0; j < sortInputNeurons.size(); j++) {
-                InputNeurons[k][sortInputNeurons[j].id].order.push_back(ord);
-
+                InputNeurons[k][sortInputNeurons[j].id]->order.push_back(ord);
                 ord++;
             }
 
-        }*/
+        }
+
+
+    }
+}
+
+void InitializeInputLayer(const vector<vector<double>> &Windows) { //intialize input layer of OeSNN
+
+    for (int k = 0; k < Windows.size(); k++) {
+        for (int j = 0; j < InputNeurons[k].size(); j++) {
+            InputNeurons[k][j]->order.clear();
+        }
+    }
+
+    for (int k = 0; k < InputNeurons.size(); k++) {
+
+        //  cout << k << endl;
+        if (I_max[k] < Windows[k][Windows[k].size() - 1]) {
+            I_max[k] = Windows[k][Windows[k].size() - 1];
+        }
+        if (I_min[k] > Windows[k][Windows[k].size() - 1]) {
+            I_min[k] = Windows[k][Windows[k].size() - 1];
+        }
+
+        double width = (I_max[k] - I_min[k]) / NIsize;
+
+        for (int j = 0; j < GRFs[k].size(); j++) {
+            double mu = I_min[k] + (j + 1 - 0.5) * width;
+            GRFs[k][j]->mu = mu;
+        }
+
 
         for (int u = Windows[k].size() - 1; u >= 0; u--) {
 
-            int j = floor((Windows[k][u] - I_min[k]) / width) + 1;
+            int j;
+            if (Windows[k][u] != I_max[k]) {
+                j = floor((Windows[k][u] - I_min[k]) / width) + 1;
+            } else {
+                j = NIsize;
+            }
             int l;
             if (j - 1 < NIsize - j) { l = j - 1; } else { l = NIsize - j; }
+            // cout << Windows[k][u] << " " << I_min[k] << " " << width << " " << floor((Windows[k][u] - I_min[k]) / width) << " j:: " << j - 1<< endl;
 
-            // cout << j << " " << l << endl;
-            //cout << Windows[k][u] <<  endl;
+            GRFs[k][j - 1]->rank = 0;
 
-            GRFs[k][j - 1].rank = 0;
-
-            if (Windows[k][u] < GRFs[k][j].mu) {
+            if (Windows[k][u] < GRFs[k][j - 1]->mu) {
                 for (int n = 1; n <= l; n++) {
-                    GRFs[k][j - n - 1].rank = 2 * n - 1;
-                    GRFs[k][j + n - 1].rank = 2 * n;
+                    //cout << "-j: " << j - n - 1 << endl;
+                    //cout << "-j: " << j + n - 1 << endl;
+                    GRFs[k][j - n - 1]->rank = 2 * n - 1;
+                    GRFs[k][j + n - 1]->rank = 2 * n;
                 }
                 for (int n = 1; n <= j - 1 - l; n++) //n is k in algorithms
                 {
-                    GRFs[k][j - l - n - 1].rank = 2 * l - 1 + n;
+                    // cout << "-j: " << j - l - n - 1 << endl;
+                    GRFs[k][j - l - n - 1]->rank = 2 * l - 1 + n;
                 }
-                for (int n = 1; n <= NIsize - j; n++) //n is k in algorithms
+                for (int n = 1; n <= NIsize - j - l; n++) //n is k in algorithms
                 {
-                    GRFs[k][j + l + n - 1].rank = 2 * l + n;
+                    //cout << "-j: " << j + l + n - 1<< endl;
+                    GRFs[k][j + l + n - 1]->rank = 2 * l + n;
                 }
             } else {
                 for (int n = 1; n <= l; n++) {
-                    GRFs[k][j - n - 1].rank = 2 * n;
-                    GRFs[k][j + n - 1].rank = 2 * n - 1;
+                    // cout << "+j: " << j - n - 1 << endl;
+                    //  cout << "+j: " << j + n - 1 << endl;
+                    GRFs[k][j - n - 1]->rank = 2 * n;
+                    GRFs[k][j + n - 1]->rank = 2 * n - 1;
                 }
                 for (int n = 1; n <= j - 1 - l; n++) //n is k in algorithms
                 {
-                    GRFs[k][j - l - n - 1].rank = 2 * l + n;
+                    // cout << "+j: " << j - l - n - 1 << endl;
+                    GRFs[k][j - l - n - 1]->rank = 2 * l + n;
                 }
-                for (int n = 1; n <= NIsize - j - 1; n++) //n is k in algorithms
+                for (int n = 1; n <= NIsize - j - l; n++) //n is k in algorithms
                 {
-                    GRFs[k][j + l + n - 1].rank = 2 * l + n - 1;
+                    // cout << "+j: " << j + l + n << endl;
+                    GRFs[k][j + l + n - 1]->rank = 2 * l + n - 1;
                 }
             }
 
-            for (int jj = 0; jj < InputNeurons[k].size(); jj++) {
-                InputNeurons[k][jj].order.push_back(GRFs[k][jj].rank + (Wsize - u - 1) * NIsize);
-
+            for (int j = 0; j < GRFs[k].size(); j++) {
+                int rank = GRFs[k][j]->rank + (Wsize - u - 1) * NIsize;
+                //cout << " j: " << j << " " << rank << " - ";
+                InputNeurons[k][j]->order.push_back(rank);
+                //<< InputNeurons[k][j].order[InputNeurons[k][j].order.size() -1];
             }
-            //  cout << endl;
+            //cout << endl;
+
         }
     }
+
+
 }
 
 void InitializeNeuron(neuron *n_c, double x_h, int h) { //Initalize new neron n_i
@@ -149,10 +200,11 @@ void InitializeNeuron(neuron *n_c, double x_h, int h) { //Initalize new neron n_
     for (int l = 0; l < InputNeurons.size(); l++) {
         for (int j = 0; j < InputNeurons[l].size(); j++) {
             for (int u = 0; u < Wsize; u++) {
-                n_c->s_weights[l][j] += pow(mod, InputNeurons[l][j].order[u]);
+                n_c->s_weights[l][j] += pow(mod, InputNeurons[l][j]->order[u]);
             }
         }
     }
+
 
     n_c->outputValue = x_h;
     n_c->M = 1;
@@ -166,16 +218,18 @@ void InitializeNetwork(vector<vector<double>> &Windows) {
     for (int h = Wsize; h < Ninit; h++) {
 
         InitializeInputLayer(Windows);
+        //InitializeInputLayerGRFs(Windows);
+
+        //cout << "h: " << h << endl;
 
 
-        for (int k = 0; k < n; k++) {
+
             neuron *n_c = new neuron;
-            InitializeNeuron(n_c, X[k][h], h);
+        InitializeNeuron(n_c, X[0][h], h);
+        UpdateRepository(n_c);
 
-            UpdateRepository(n_c, k);
-        }
 
-        for (int k = 0; k < n + m; k++) {
+        for (int k = 0; k < Nn; k++) {
             Windows[k].erase(Windows[k].begin());
             Windows[k].push_back(X[k][h]);
         }
@@ -196,49 +250,49 @@ CalculateDistance(const vector<vector<double>> &w1,
     return sqrt(diffSq);
 }
 
-neuron *FindMostSimilar(neuron *n_c, int F_k) { //find mos similar neurons in terms of synaptic weights
+neuron *FindMostSimilar(neuron *n_c) { //find mos similar neurons in terms of synaptic weights
 
-    double minDist = CalculateDistance(n_c->s_weights, OutputNeurons[F_k][0]->s_weights);
+    double minDist = CalculateDistance(n_c->s_weights, OutputNeurons[0]->s_weights);
     double minIdx = 0;
 
-    if (OutputNeurons[F_k].size() > 1) {
-        for (int i = 1; i < OutputNeurons[F_k].size(); i++) {
-            double dist = CalculateDistance(n_c->s_weights, OutputNeurons[F_k][i]->s_weights);
+    if (OutputNeurons.size() > 1) {
+        for (int i = 1; i < OutputNeurons.size(); i++) {
+            double dist = CalculateDistance(n_c->s_weights, OutputNeurons[i]->s_weights);
             if (dist < minDist) {
                 minDist = dist;
                 minIdx = i;
             }
         }
     }
-    return OutputNeurons[F_k][minIdx];
+    return OutputNeurons[minIdx];
 }
 
-void ReplaceOldest(neuron *n_c, int F_k) { //replace the oldets neuron in output repostiory
-    int oldest = OutputNeurons[F_k][0]->additionTime;
+void ReplaceOldest(neuron *n_c) { //replace the oldets neuron in output repostiory
+    int oldest = OutputNeurons[0]->additionTime;
     int oldestIdx = 0;
 
-    for (int i = 1; i < OutputNeurons[F_k].size(); i++) {
-        if (oldest > OutputNeurons[F_k][i]->additionTime) {
-            oldest = OutputNeurons[F_k][i]->additionTime;
+    for (int i = 1; i < OutputNeurons.size(); i++) {
+        if (oldest > OutputNeurons[i]->additionTime) {
+            oldest = OutputNeurons[i]->additionTime;
             oldestIdx = i;
         }
     }
 
-    delete OutputNeurons[F_k][oldestIdx];
-    OutputNeurons[F_k][oldestIdx] = n_c;
+    delete OutputNeurons[oldestIdx];
+    OutputNeurons[oldestIdx] = n_c;
 
 }
 
 
-void UpdateRepository(neuron *n_c, int F_k) { //Update neuron n_s in output repository
+void UpdateRepository(neuron *n_c) { //Update neuron n_s in output repository
 
     neuron *n_s;
 
-    if (OutputNeurons[F_k].size() > 0) {
-        n_s = FindMostSimilar(n_c, F_k);
+    if (OutputNeurons.size() > 0) {
+        n_s = FindMostSimilar(n_c);
     }
 
-    if (OutputNeurons[F_k].size() > 0 && CalculateDistance(n_c->s_weights, n_s->s_weights) < simTr * Dub) {
+    if (OutputNeurons.size() > 0 && CalculateDistance(n_c->s_weights, n_s->s_weights) < simTr * Dub) {
         for (int k = 0; k < n_s->s_weights.size(); k++) {
             for (int j = 0; j < n_s->s_weights[k].size(); j++) {
                 n_s->s_weights[k][j] = (n_c->s_weights[k][j] + n_s->s_weights[k][j] * n_s->M) / (n_s->M + 1);
@@ -249,24 +303,24 @@ void UpdateRepository(neuron *n_c, int F_k) { //Update neuron n_s in output repo
         n_s->additionTime = (n_c->additionTime + n_s->additionTime * n_s->M) / (n_s->M + 1);
         n_s->M += 1;
         delete n_c;
-    } else if (OutputNeurons[F_k].size() < NOsize) {
-        OutputNeurons[F_k].push_back(n_c);
+    } else if (OutputNeurons.size() < NOsize) {
+        OutputNeurons.push_back(n_c);
     } else {
-        ReplaceOldest(n_c, F_k);
+        ReplaceOldest(n_c);
     }
 }
 
-double PredictValue(int F_k) {
-    for (int i = 0; i < OutputNeurons[F_k].size(); i++) {
-        OutputNeurons[F_k][i]->PSP = 0;
+double PredictValue() {
+    for (int i = 0; i < OutputNeurons.size(); i++) {
+        OutputNeurons[i]->PSP = 0;
     }
 
     for (int l = 0; l < InputNeurons.size(); l++) {
         for (int j = 0; j < InputNeurons[l].size(); j++) {
-            for (int i = 0; i < OutputNeurons[F_k].size(); i++) {
+            for (int i = 0; i < OutputNeurons.size(); i++) {
                 for (int u = 0; u < Wsize; u++) {
-                    OutputNeurons[F_k][i]->PSP += OutputNeurons[F_k][i]->s_weights[l][j] *
-                                                  pow(mod, InputNeurons[l][j].order[u]);
+                    OutputNeurons[i]->PSP += OutputNeurons[i]->s_weights[l][j] *
+                                             pow(mod, InputNeurons[l][j]->order[u]);
                 }
             }
         }
@@ -277,13 +331,13 @@ double PredictValue(int F_k) {
     double maxVals;
     int countMax = 0;
 
-    for (int i = 0; i < OutputNeurons[F_k].size(); i++) {
-        if (maxPSP < OutputNeurons[F_k][i]->PSP) {
-            maxVals = OutputNeurons[F_k][i]->outputValue;
+    for (int i = 0; i < OutputNeurons.size(); i++) {
+        if (maxPSP < OutputNeurons[i]->PSP) {
+            maxVals = OutputNeurons[i]->outputValue;
             countMax = 1;
-            maxPSP = OutputNeurons[F_k][i]->PSP;
-        } else if (maxPSP == OutputNeurons[F_k][i]->PSP) {
-            maxVals += OutputNeurons[F_k][i]->outputValue;
+            maxPSP = OutputNeurons[i]->PSP;
+        } else if (maxPSP == OutputNeurons[i]->PSP) {
+            maxVals += OutputNeurons[i]->outputValue;
             countMax++;
         }
     }
@@ -319,36 +373,32 @@ double CalculateUpperBound() {
 
 void PredictOeSNN() { //main eSNN procedure
 
-    for (int k = 0; k < n + m; k++) {
+    for (int k = 0; k < Nn; k++) {
         CNOsize.push_back(0);
     }
 
-    for (int k = 0; k < n + m; k++) {
-        vector<GRFstruct> GRFSvec;
+    for (int k = 0; k < Nn; k++) {
+        vector<GRFstruct *> GRFSvec;
         for (int j = 0; j < NIsize; j++) {
-            GRFstruct newGRF;
+            GRFstruct *newGRF = new GRFstruct;
             GRFSvec.push_back(newGRF);
         }
         GRFs.push_back(GRFSvec);
     }
 
-    for (int k = 0; k < n + m; k++) {
-        vector<inputNeuron> InputNeuronsVect;
+    for (int k = 0; k < Nn; k++) {
+        vector<inputNeuron *> InputNeuronsVect;
         for (int j = 0; j < NIsize; j++) {
-            inputNeuron newInputNeuron = {j, k};
+            inputNeuron *newInputNeuron = new inputNeuron{j, k, 0};
             InputNeuronsVect.push_back(newInputNeuron);
         }
         InputNeurons.push_back(InputNeuronsVect);
     }
 
-    for (int k = 0; k < n; k++) {
-        vector<neuron *> vec;
-        OutputNeurons.push_back(vec);
-    }
 
     vector<vector<double>> Windows;
 
-    for (int k = 0; k < n + m; k++) {
+    for (int k = 0; k < Nn; k++) {
         vector<double> win;
         for (int h = 0; h < Wsize; h++) {
             win.push_back(X[k][h]);
@@ -358,7 +408,7 @@ void PredictOeSNN() { //main eSNN procedure
     }
 
     for (int h = Wsize; h < Ninit; h++) {
-        for (int k = 0; k < n + m; k++) {
+        for (int k = 0; k < Nn; k++) {
             Wstream[k].push_back(X[k][h]);
         }
     }
@@ -390,14 +440,15 @@ void PredictOeSNN() { //main eSNN procedure
 
 
         InitializeInputLayer(Windows);
+        //InitializeInputLayerGRFs(Windows);
 
-        for (int k = 0; k < n; k++) {
-            neuron *n_c = new neuron;
-            InitializeNeuron(n_c, X[k][h], h);
-            UpdateRepository(n_c, k);
-        }
 
-        for (int k = 0; k < n + m; k++) {
+        neuron *n_c = new neuron;
+        InitializeNeuron(n_c, X[0][h], h);
+        UpdateRepository(n_c);
+
+
+        for (int k = 0; k < Nn; k++) {
             Windows[k].erase(Windows[k].begin());
             Windows[k].push_back(X[k][h]);
             WP[k] = Windows[k];
@@ -408,19 +459,15 @@ void PredictOeSNN() { //main eSNN procedure
 
         for (int hpred = 1; hpred <= H; hpred++) {
             InitializeInputLayer(WP);
+            //InitializeInputLayerGRFs(WP);
 
-            for (int k = 0; k < n; k++) {
+            double y_h_hpred = PredictValue();
+            WP[0].erase(WP[0].begin());
+            WP[0].push_back(y_h_hpred);
 
-                double y_h_hpred = PredictValue(k);
-                // WP[k].erase(WP[k].begin());
-                //WP[k].push_back(y_h_hpred);
+            y.push_back(y_h_hpred);
 
-                if (k == 0) {
-                    y.push_back(y_h_hpred);
-                }
-            }
-
-            for (int k = n; k < n + m; k++) {
+            for (int k = 1; k < Nn; k++) {
 
                 WP[k].erase(WP[k].begin());
                 WP[k].push_back(X[k][h + hpred]);
@@ -483,7 +530,7 @@ void LoadData(string fileName) {
     datasetSize = CountInstances(fileName); // zlicz l. instancji w pliku
 
 
-    for (int k = 0; k < n + m; k++) {
+    for (int k = 0; k < Nn; k++) {
         vector<double> vec;
         X.push_back(vec);
     }
@@ -497,7 +544,7 @@ void LoadData(string fileName) {
 
         if (line != "") {
             IDS.push_back(i);
-            for (int k = 0; k < n + m - 1; k++) {
+            for (int k = 0; k < Nn - 1; k++) {
                 getline(linestream, dataPortion, ',');
                 double value = stod(dataPortion);
                 X[k].push_back(value);
@@ -505,7 +552,7 @@ void LoadData(string fileName) {
 
             getline(linestream, dataPortion, ' ');
             double value = stod(dataPortion);
-            X[n + m - 1].push_back(value);
+            X[Nn - 1].push_back(value);
         }
     }
     handler.close();
@@ -513,14 +560,21 @@ void LoadData(string fileName) {
 
 //Clear all structures after each eSNN training and classification
 void ClearStructures() {
-    for (int k = 0; k < OutputNeurons.size(); k++) {
-        for (int i = 0; i < OutputNeurons[k].size(); i++) {
-            delete OutputNeurons[k][i];
-        }
+
+    for (int i = 0; i < OutputNeurons.size(); i++) {
+        delete OutputNeurons[i];
     }
+
     OutputNeurons.clear();
     X.clear();
     Y.clear();
+
+    for (int k = 0; k < InputNeurons.size(); k++) {
+        for (int j = 0; j < InputNeurons.size(); j++) {
+            delete InputNeurons[k][j];
+            delete GRFs[k][j];
+        }
+    }
 
     InputNeurons.clear();
     GRFs.clear();

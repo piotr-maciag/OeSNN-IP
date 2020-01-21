@@ -38,7 +38,7 @@ struct inputNeuron
     int id;
     int FA_k;
     double firingTime;
-    vector<int> order = *(new vector<int>);
+    vector<int> order;
 }; //input neuron structure
 
 extern vector<int> CNOsize;
@@ -49,27 +49,27 @@ extern double simTr;
 extern double mod;
 extern int Ninit, Nsize;
 
-extern int n;
-extern int m;
+extern int Nn;
 extern double H;
-extern int K;
 
-extern vector<vector<neuron *>> OutputNeurons; //Pointers to output neurons (output neuron repositories)
+extern vector<neuron *> OutputNeurons; //Pointers to output neurons (output neuron repositories)
 extern vector<vector<double >> X; //input data streams
 extern vector<vector<double >> Y; //predicted values of pollution level
 extern vector<int> IDS;
 
-extern vector<vector<GRFstruct>> GRFs; //input GRFs
-extern vector<vector<inputNeuron>> InputNeurons; //firing order of input neurons for current X[t]
+extern vector<vector<GRFstruct *>> GRFs; //input GRFs
+extern vector<vector<inputNeuron *>> InputNeurons; //firing order of input neurons for current X[t]
 
 void LoadData(string fileName);
 int CountInstances(string fileName);
 
 void InitializeInputLayer(const vector<vector<double>> &Windows);
 void InitializeNeuron(neuron* n_c, double x_h, int h);
-void UpdateRepository(neuron* n_c, int F_k);
+
+void UpdateRepository(neuron *n_c);
 void InitializeNetwork(vector<vector<double>> &Windows);
-double PredictValue(int F_k);
+
+double PredictValue();
 
 
 void PredictOeSNN(); //main procedure of eSNN-RTAD
